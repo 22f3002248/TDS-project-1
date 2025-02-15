@@ -295,7 +295,6 @@ The task may be in english language or in any other language. Analyze the task c
 
 
 def get_fixed_response(task, error_message, full_code):
-    # Create a new prompt that includes the error message
     new_system_message = f'''
     For task: {task}
     Previous code:
@@ -320,7 +319,7 @@ def get_fixed_response(task, error_message, full_code):
 
 
 def run_code_python_specific(full_response, task, input_file, output_file, dependencies_passed):
-    max_retries = 2
+    max_retries = 3
     attempt = 0
     while attempt < max_retries:
         try:
@@ -447,7 +446,7 @@ def generate_preview(file_path, total_preview_lines=25, tolerance=5):
             return "".join(lines)
 
         # Otherwise, sample from the beginning, middle, and end.
-        first_part = lines[:10]
+        first_part = lines[:40]
         middle_index = n // 2
         middle_part = lines[max(0, middle_index-2):middle_index+3]
         last_part = lines[-10:]
@@ -564,14 +563,10 @@ You are an assistant that receives various task descriptions and must generate e
    
 5. SPECIALIZED INSTRUCTIONS FOR TASKS:
    - **A1 (Datagen):** Generate code to install `uv` (if needed) and run a data generation script from a specified URL with a single argument (user email). Do not generate any code; instead, ensure the "arguments" array includes exactly two items: the data URL and the user email.
-   - **A2 (Markdown Formatting):** Generate code to format a markdown file (e.g., using prettier@3.4.2) and update it in-place.Install prettier with specified version if needed, run command using npx, in the subprocess function keep "shell=True" and dont use "cwd='/data'" for executing the code.
    - **A3 (Date Counting):** Generate code to read a file containing dates, count the number of certain days, and write the result to the output file as a JSON numeric literal. If you encounter "count the # of" then interpret it as "count the number of".
    - **A4 (Contacts Sorting):** Generate code to sort an array of JSON objects (contacts) by last name and then first name, preserving the original formatting (if the source uses single quotes or specific indentation, keep that).
    - **A5 (Log Processing):** Generate code to identify the 10 most recent log files in a directory and write the first line of each to an output file in the specified order.
-   - **A6 (Markdown Indexing):** Generate code to recursively traverse a directory of Markdown files, extract the first H1 line from each file, and create an index mapping each file's relative path (relative to the directory) to the heading text, outputting compact JSON.
    - **A7 (Email Extraction):** Generate code to extract the sender's email address from an email message file and write it exactly as plain text to the output file.
-   - **A8 (Credit Card OCR):** For OCR tasks, use lightweight libraries and include verification in the code itself (e.g. if asked for extracting credit card number from a png, verify if a valid 16 digit number is extracted or not). The verification will depend on what input is provided.
-   - **A9 (Comments Similarity):** Generate code to compute embeddings using TF-IDF and cosine similarity for a list of comments, ignoring self-similarity (e.g., by masking the diagonal), and write the two most similar distinct comments to the output file (one per line).
    - **A10 (Ticket Sales):** Generate code to execute a SQL query on a SQLite database to calculate the total sales of tickets of type "Gold" and write the result as a JSON numeric literal to the output file.
    - For formatting tasks, if the external tool (e.g., prettier@3.4.2) is not available in the evaluation environment, try to install it using subprocess and npm, in subprocess function keep "shell=True" and dont use "cwd='/data'"
 
@@ -652,9 +647,10 @@ def extract_path_with_llm(user_input: str) -> str:
 You are an assistant who extracts file paths while ensuring security constraints.
 
 **Rules:**
-1. You can only extract paths that start with `/data/`.
-2. If the user provides a path outside `/data/`, return `"validity": false` and `"path": ""`.
+1. You can only extract paths that start with `/data`.
+2. If the user provides a path outside `/data`, return `"validity": false` and `"path": ""`.
 3. Always respond in **strict JSON format** with the following structure:
+4. The path should be a string.
    {{
      "validity": True or False,
      "path": "<extracted_path_or_empty_string>"
@@ -699,7 +695,7 @@ You are an assistant who extracts file paths while ensuring security constraints
 
         logging.info(f"Extracted Path: {extracted_path}, Validity: {validity}")
 
-        if not validity or not extracted_path.startswith("/data/"):
+        if not validity or not extracted_path.startswith("/data"):
             raise HTTPException(
                 status_code=403, detail="Access to file is not allowed"
             )
