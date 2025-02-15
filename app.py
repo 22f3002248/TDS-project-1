@@ -649,9 +649,17 @@ Generate Python code that implements the solution according to the above guideli
 def extract_path_with_llm(user_input: str) -> str:
     """Send request to LLM API to extract file path from user input."""
     system_prompt = f'''
-    You are an assistant who has to perform many tasks.
-    You have to extract the path which looks like "/data/<filename>" and return the path.
-    **IMPORTANT**: You can only access data in "/data" directory and can never access other directories. If user asks for any path that is not in "/data", send "NOT ALLOWED" message.
+You are an assistant who extracts file paths while ensuring security constraints.
+
+**Rules:**
+1. You can only extract paths that start with `/data/`.
+2. If the user provides a path outside `/data/`, return `"validity": false` and `"path": ""`.
+3. Always respond in **strict JSON format** with the following structure:
+   {{
+     "validity": True or False,
+     "path": "<extracted_path_or_empty_string>"
+   }}
+
     '''
     messages = [
         {"role": "system", "content": system_prompt},
@@ -661,21 +669,47 @@ def extract_path_with_llm(user_input: str) -> str:
     payload = {
         "model": "gpt-4o-mini",
         "messages": messages,
-        "tools": [],
+        "tools": tools,
         "tool_choice": "none"
     }
+
     response = requests.post(url, headers=headers, json=payload)
+
+    print("Response Status Code:", response.status_code)
+    print("Response Content:", response.text)
+    logging.info(response.text)
 
     if response.status_code != 200:
         raise HTTPException(
-            status_code=500, detail="Failed to process request with LLM")
+            status_code=500, detail="Failed to process request with LLM"
+        )
 
-    extracted_path = response.json().get("extracted_path", "")
-    if not extracted_path.startswith("/data"):
+    try:
+        response_json = response.json()
+
+        # Extracting the actual content from the LLM response
+        raw_content = response_json.get("choices", [{}])[0].get(
+            "message", {}).get("content", "{}")
+
+        # Parse the content as JSON
+        parsed_content = json.loads(raw_content)
+
+        validity = parsed_content.get("validity", False)
+        extracted_path = parsed_content.get("path", "")
+
+        logging.info(f"Extracted Path: {extracted_path}, Validity: {validity}")
+
+        if not validity or not extracted_path.startswith("/data/"):
+            raise HTTPException(
+                status_code=403, detail="Access to file is not allowed"
+            )
+
+        return extracted_path
+
+    except (ValueError, KeyError, json.JSONDecodeError):
         raise HTTPException(
-            status_code=403, detail="Access to file is not allowed")
-
-    return extracted_path
+            status_code=500, detail="Invalid response format from LLM"
+        )
 
 
 @app.get("/read", response_class=PlainTextResponse)
@@ -686,7 +720,7 @@ def read(path: str):
     If 'path' contains a sentence, it extracts the path using an LLM API.
     """
     actual_path = extract_path_with_llm(path)
-
+    logging.info(actual_path)
     if not os.path.exists(actual_path):
         raise HTTPException(status_code=404, detail="File not found")
 
