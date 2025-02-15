@@ -28,5 +28,8 @@ WORKDIR /app
 COPY app.py .
 COPY task_functions.py .
 
-# Ensure tesseract-ocr is updated before running the app
-CMD bash -c "apt-get update && apt-get upgrade -y tesseract-ocr && uv run app.py"
+# Ensure `tesseract-ocr` is updated **at build time** (not every time the container runs)
+RUN apt-get update && apt-get upgrade -y tesseract-ocr && rm -rf /var/lib/apt/lists/*
+
+# Start the app
+CMD ["uv", "run", "app.py"]
