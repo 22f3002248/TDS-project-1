@@ -24,6 +24,15 @@ RUN mkdir -p /app /data
 # Set the working directory
 WORKDIR /app
 
+
+# --- 🛠️ Prepare node_modules before runtime ---
+# Create an empty package.json to initialize node_modules
+RUN npm init -y
+
+# Set correct ownership and permissions
+RUN chown -R root:root /app/node_modules && chmod -R 777 /app/node_modules
+
+
 # Copy application files
 COPY app.py .
 COPY task_functions.py .
