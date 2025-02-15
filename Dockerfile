@@ -24,17 +24,15 @@ RUN mkdir -p /app /data
 # Set the working directory
 WORKDIR /app
 
-
 # --- 🛠️ Prepare node_modules before runtime ---
-# Create an empty package.json to initialize node_modules
-RUN npm init -y
+# Create package.json and install an empty node_modules
+RUN npm init -y && npm install --no-save
 
-# Set correct ownership and permissions
-RUN chown -R root:root /app/node_modules && chmod -R 777 /app/node_modules
-
+# Ensure node_modules exists and has correct permissions
+RUN mkdir -p /app/node_modules && chmod -R 777 /app/node_modules
 
 # Copy application files
-COPY app.py .
+COPY app.py . 
 COPY task_functions.py .
 
 # Ensure `tesseract-ocr` is updated **at build time** (not every time the container runs)

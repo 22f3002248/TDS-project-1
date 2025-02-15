@@ -12,6 +12,7 @@
 # ]
 # ///
 
+from PIL import Image, ImageEnhance, ImageFilter
 import asyncio
 import hashlib
 import json
@@ -97,25 +98,34 @@ def format_file(input_path: str, output_path: str, inplace: bool = True, formatt
     return "A2 completed"
 
 
+async def preprocess_image(image_path):
+    image = Image.open(image_path)
+    image = image.convert("L")  # Convert to grayscale
+    image = image.filter(ImageFilter.SHARPEN)  # Enhance edges
+    image = ImageEnhance.Contrast(image).enhance(2)  # Increase contrast
+    image = image.resize((image.width * 2, image.height * 2))  # Upscale
+    return image
+
+
 async def image_ocr(input_path, output_path):
     """
-    A8. Read /data/credit_card.png (a PNG picture of a credit card), process the image using OCR
-         to extract the credit card number, remove any spaces or hyphens, and write the resulting
-         number to /data/credit-card.txt.
-         Note: The input file is expected with an underscore (credit_card.png) while the output file
-         uses a hyphen (credit-card.txt).
+    A8. Read a PNG image, process it using OCR to extract the credit card number,
+    remove any spaces or hyphens, and write the result to the specified output file.
     """
-    from PIL import Image
     try:
-        image = Image.open(input_path)
+        image = await preprocess_image(input_path)
     except Exception as e:
-        raise Exception("Error opening image: " + str(e))
-    extracted_text = pytesseract.image_to_string(image)
-    # print(extracted_text)
+        raise Exception("Error opening or processing image: " + str(e))
+
+    extracted_text = pytesseract.image_to_string(image, config="--psm 6")
+    logging.info(f"OCR Output:\n{extracted_text}")
+
     match = re.search(r"((?:\d[\s-]?){13,19})", extracted_text)
     if not match:
         raise Exception("Credit card number not found in OCR output")
+
     card_number = re.sub(r"[\s-]", "", match.group(1))
+
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(card_number)
 
