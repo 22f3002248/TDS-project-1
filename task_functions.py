@@ -46,7 +46,7 @@ def format_file(input_path: str, output_path: str, inplace: bool = True, formatt
     """
     if not os.path.exists(input_path):
         raise Exception(f"{input_path} not found")
-
+    logging.info("Started formatting")
     try:
         # Check if npx can fetch the formatter version
         version_cmd = ["npx", "--yes", formatter, "--version"]

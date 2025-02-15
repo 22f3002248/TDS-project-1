@@ -646,23 +646,72 @@ Generate Python code that implements the solution according to the above guideli
 
 # ----------------------------------- ^^^ /run?task= ^^^ --------------------------------------==>
 
+def extract_path_with_llm(user_input: str) -> str:
+    """Send request to LLM API to extract file path from user input."""
+    system_prompt = f'''
+    You are an assistant who has to perform many tasks.
+    You have to extract the path which looks like "/data/<filename>" and return the path.
+    **IMPORTANT**: You can only access data in "/data" directory and can never access other directories. If user asks for any path that is not in "/data", send "NOT ALLOWED" message.
+    '''
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_input}
+
+    ]
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": messages,
+        "tools": [],
+        "tool_choice": "none"
+    }
+    response = requests.post(url, headers=headers, json=payload)
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=500, detail="Failed to process request with LLM")
+
+    extracted_path = response.json().get("extracted_path", "")
+    if not extracted_path.startswith("/data"):
+        raise HTTPException(
+            status_code=403, detail="Access to file is not allowed")
+
+    return extracted_path
+
 
 @app.get("/read", response_class=PlainTextResponse)
 def read(path: str):
-    if not path.startswith("/data"):
-        raise HTTPException(
-            status_code=403, detail="Access to file is not allowed")
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="File is not found")
+    """
+    Read the contents of a file.
+    If 'path' contains a direct file path, it reads the file.
+    If 'path' contains a sentence, it extracts the path using an LLM API.
+    """
+    actual_path = extract_path_with_llm(path)
+
+    if not os.path.exists(actual_path):
+        raise HTTPException(status_code=404, detail="File not found")
+
     try:
-        with open(path, "r") as f:
+        with open(actual_path, "r") as f:
             return f.read()
     except Exception:
-        raise HTTPException(status_code=404, detail="File not found!")
+        raise HTTPException(status_code=500, detail="Error reading file")
+
+
+# @app.get("/read", response_class=PlainTextResponse)
+# def read(path: str):
+#     if not path.startswith("/data"):
+#         raise HTTPException(
+#             status_code=403, detail="Access to file is not allowed")
+#     if not os.path.exists(path):
+#         raise HTTPException(status_code=404, detail="File is not found")
+#     try:
+#         with open(path, "r") as f:
+#             return f.read()
+#     except Exception:
+#         raise HTTPException(status_code=404, detail="File not found!")
 
 
 # ----------------------------------- ^^^ /read?path= ^^^ -------------------------------------==>
-
 
 if __name__ == "__main__":
     import uvicorn
