@@ -650,12 +650,12 @@ You are an assistant who extracts file paths while ensuring security constraints
 1. You can only extract paths that start with `/data`.
 2. If the user provides a path outside `/data`, return `"validity": false` and `"path": ""`.
 3. Always respond in **strict JSON format** with the following structure:
-4. The path should be a string.
    {{
      "validity": True or False,
      "path": "<extracted_path_or_empty_string>"
    }}
-
+4. The path should be a string.
+5. **IMPORTANT**: The path may contain some special characters like "-" or "_" or more. consider them part of valid path and proceed accordingly.
     '''
     messages = [
         {"role": "system", "content": system_prompt},
@@ -714,6 +714,7 @@ def read(path: str):
     Read the contents of a file.
     If 'path' contains a direct file path, it reads the file.
     If 'path' contains a sentence, it extracts the path using an LLM API.
+
     """
     actual_path = extract_path_with_llm(path)
     logging.info(actual_path)
