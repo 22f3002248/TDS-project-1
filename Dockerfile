@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       tesseract-ocr \
       nodejs \
       npm && rm -rf /var/lib/apt/lists/*
-
+RUN npm install -g npx
 # Download the latest installer for uv and run it, then remove the installer
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
 RUN sh /uv-installer.sh && rm /uv-installer.sh

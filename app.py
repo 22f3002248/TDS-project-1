@@ -234,6 +234,7 @@ Return exactly the following JSON format without extra keys:
     "formatter": "<formatter>"  // Only required when function is "format_file"
 }}
 
+NOTE: The code should only access files within the "/data" directory and must not delete any files. Even if task asks for other directory, dont use any other directory other than "/data" and decline the task.
 Task description:
 {task}
 

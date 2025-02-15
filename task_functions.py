@@ -38,7 +38,7 @@ headers = {
 }
 
 
-async def format_file(input_path: str, output_path: str, inplace: bool = True, formatter: str = "prettier@3.4.2"):
+def format_file(input_path: str, output_path: str, inplace: bool = True, formatter: str = "prettier@3.4.2"):
     """
     A2. Format the contents of a Markdown file using the specified formatter (e.g., prettier@3.4.2).
     If inplace is True, update the file at input_path; otherwise, write the formatted output to output_path.
@@ -46,58 +46,52 @@ async def format_file(input_path: str, output_path: str, inplace: bool = True, f
     """
     if not os.path.exists(input_path):
         raise Exception(f"{input_path} not found")
+
     try:
-        version_result = await asyncio.to_thread(
-            subprocess.run,
-            f"npx --no-install {formatter} --version",
-            capture_output=True,
-            text=True,
-            shell=True,
-            check=True
+        # Check if npx can fetch the formatter version
+        version_cmd = ["npx", "--yes", formatter, "--version"]
+        version_result = subprocess.run(
+            version_cmd, capture_output=True, text=True, check=True
         )
         logging.info(
-            f"{formatter} is already installed: {version_result.stdout.strip()}")
+            f"{formatter} is available: {version_result.stdout.strip()}")
     except subprocess.CalledProcessError:
         logging.info(f"{formatter} is not installed. Installing...")
         try:
-            install_result = await asyncio.to_thread(
-                subprocess.run,
-                f"npm install -g {formatter}",
+            subprocess.run(
+                ["npm", "install", "-g", formatter],
                 capture_output=True,
                 text=True,
-                shell=True,
                 check=True
             )
-            logging.info(
-                f"Installed {formatter}: {install_result.stdout.strip()}")
+            logging.info(f"Installed {formatter}")
         except subprocess.CalledProcessError as e_install:
             raise Exception(
                 f"Failed to install {formatter}: {e_install.stderr}")
+
+    # Read the original file
     with open(input_path, "r", encoding="utf-8") as f:
         original = f.read()
-    cmd = f"npx {formatter} --stdin-filepath {input_path}"
 
+    # Run the formatter with npx
+    cmd = ["npx", "--yes", formatter, "--stdin-filepath", input_path]
     try:
-        result = await asyncio.to_thread(
-            subprocess.run,
+        result = subprocess.run(
             cmd,
             input=original,
             capture_output=True,
             text=True,
-            shell=True,
             check=True
         )
     except subprocess.CalledProcessError as e:
-        raise Exception("Formatter failed: " + e.stderr)
+        raise Exception(f"Formatter failed: {e.stderr}")
 
     formatted = result.stdout
 
-    if inplace:
-        with open(input_path, "w", encoding="utf-8") as f:
-            f.write(formatted)
-    else:
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(formatted)
+    # Write the output
+    target_path = input_path if inplace else output_path
+    with open(target_path, "w", encoding="utf-8") as f:
+        f.write(formatted)
 
     logging.info("Task A2 completed")
     return "A2 completed"
