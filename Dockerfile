@@ -20,6 +20,6 @@ RUN mkdir -p /data
 
 # Copy your application code
 COPY app.py /
-
+COPY task_functions.py /
 # Run the app with uv
 CMD ["uv", "run", "app.py"]
